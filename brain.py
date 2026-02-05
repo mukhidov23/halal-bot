@@ -1,69 +1,79 @@
-import google.generativeai as genai
+import requests
+import base64
 import os
-from PIL import Image
 
 # --- 🔑 YANGI KALIT ---
 API_KEY = "AIzaSyC5IRLgBtXRYZBbo9lE5lMMqNh1PIG98i8"
 
-# Googleni sozlaymiz
-genai.configure(api_key=API_KEY)
-
-# --- 🧠 MODELNI AVTOMATIK TOPISH ---
-def get_best_model():
-    try:
-        # Google-dan bor modellarni ro'yxatini so'raymiz
-        for m in genai.list_models():
-            # Agar model matn va rasm yarata olsa (generateContent), shuni olamiz
-            if 'generateContent' in m.supported_generation_methods:
-                if 'flash' in m.name: # Flash modelni afzal ko'ramiz (tezligi uchun)
-                    return genai.GenerativeModel(m.name)
-        
-        # Agar Flash topilmasa, birinchi uchragan ishlaydigan modelni olamiz
-        for m in genai.list_models():
-             if 'generateContent' in m.supported_generation_methods:
-                 return genai.GenerativeModel(m.name)
-                 
-    except Exception as e:
-        print(f"Model qidirishda xato: {e}")
-    
-    # Hech narsa topilmasa, majburan standartini qo'yamiz
-    return genai.GenerativeModel('gemini-1.5-flash')
-
-# Modelni ishga tushiramiz
-model = get_best_model()
+# --- ⚙️ SOZLAMALAR ---
+# Biz SDK ishlatmaymiz, to'g'ridan-to'g'ri URL ga yozamiz
+URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
 
 # --- 🧠 SYSTEM PROMPT ---
 SYSTEM_PROMPT = """
 Sen professional oziq-ovqat texnologi va Islomiy halol standarti ekspertisan.
-Vazifang: Foydalanuvchi yuborgan mahsulot tarkibini (matn yoki rasm) tahlil qilish.
+Javobni O'ZBEK tilida ber.
 
 TAHLIL QOIDALARI:
-1. 🔴 HAROM: Agar tarkibda cho'chqa yog'i, cho'chqa jelatini, karmin (E120), shellak (E904), L-sistein (odam yoki cho'chqa sochidan), spirt (alkogol, vino, konyak) bo'lsa.
-2. 🟡 SHUBHALI (MASHBUH): Agar kelib chiqishi noma'lum jelatin, glitserin, mono- va diglitseridlar (E471), polisorbatlar bo'lsa va "o'simlikdan" deb aniq yozilmagan bo'lsa.
-3. 🟢 HALOL: Agar tarkib toza bo'lsa (faqat o'simlik, sut, suv, tuz, sintetika va h.k.).
-4. Agar yuborilgan narsa oziq-ovqat bo'lmasa -> "⚠️ Bu oziq-ovqat emas" deb ayt.
+1. 🔴 HAROM: Cho'chqa (yog', jelatin), Karmin (E120), Shellak (E904), L-sistein (odam/cho'chqa), Alkogol.
+2. 🟡 SHUBHALI: Noma'lum jelatin, E471, glitserin (agar o'simlik deyilmasa).
+3. 🟢 HALOL: Faqat o'simlik, sut, suv, tuz, sintetika.
+4. Oziq-ovqat bo'lmasa -> "⚠️ Bu oziq-ovqat emas".
 
-JAVOB FORMATI (O'zbek tilida):
----
-🏷 **Mahsulot:** [Mahsulot nomini aniqla]
-📊 **Status:** [🟢 HALOL / 🔴 HAROM / 🟡 SHUBHALI]
-
-📝 **Tahlil:**
-[Bu yerda qisqa va lo'nda tushuntir.]
----
+JAVOB FORMATI:
+🏷 Mahsulot: [Nom]
+📊 Status: [🟢 HALOL / 🔴 HAROM / 🟡 SHUBHALI]
+📝 Tahlil: [Qisqa tushuntirish]
 """
 
-def analyze_text_with_ai(text_input):
+def send_request(payload):
+    """Googlega to'g'ridan-to'g'ri xat yuborish"""
     try:
-        response = model.generate_content(SYSTEM_PROMPT + f"\n\nMatn: {text_input}")
-        return response.text
+        response = requests.post(URL, json=payload, headers={'Content-Type': 'application/json'})
+        
+        if response.status_code == 200:
+            result = response.json()
+            # Javobni ichidan kerakli matnni kovlab olamiz
+            try:
+                return result['candidates'][0]['content']['parts'][0]['text']
+            except:
+                return "⚠️ Tushunarsiz javob keldi."
+        else:
+            return f"⚠️ Xatolik (Kod {response.status_code}): {response.text[:100]}"
+            
     except Exception as e:
-        return f"⚠️ Xatolik: {e}\n(Model: {model.model_name if hasattr(model, 'model_name') else 'Noma\'lum'})"
+        return f"⚠️ Internet xatosi: {e}"
+
+def analyze_text_with_ai(text_input):
+    payload = {
+        "contents": [{
+            "parts": [
+                {"text": SYSTEM_PROMPT},
+                {"text": f"Tekshirilayotgan matn: {text_input}"}
+            ]
+        }]
+    }
+    return send_request(payload)
 
 def analyze_image_with_ai(image_path):
     try:
-        img = Image.open(image_path)
-        response = model.generate_content([SYSTEM_PROMPT, img])
-        return response.text
+        # Rasmni kodga aylantiramiz (Base64)
+        with open(image_path, "rb") as image_file:
+            image_data = base64.b64encode(image_file.read()).decode('utf-8')
+
+        payload = {
+            "contents": [{
+                "parts": [
+                    {"text": SYSTEM_PROMPT},
+                    {
+                        "inline_data": {
+                            "mime_type": "image/jpeg",
+                            "data": image_data
+                        }
+                    }
+                ]
+            }]
+        }
+        return send_request(payload)
     except Exception as e:
-        return f"⚠️ Rasmni ochishda xatolik: {e}"
+        return f"⚠️ Rasmni tayyorlashda xato: {e}"
