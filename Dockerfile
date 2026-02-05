@@ -1,21 +1,21 @@
-# Python 3.10 versiyasini olamiz
+# Yengil Python versiyasini olamiz
 FROM python:3.10-slim
 
-# 1. Tesseract va kerakli tizim kutubxonalarini majburlab o'rnatamiz
+# Kerakli tizim kutubxonalarini o'rnatamiz (Tesseract olib tashlandi, gcc qo'shildi)
 RUN apt-get update && apt-get install -y \
-    tesseract-ocr \
-    libtesseract-dev \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Ishchi papkani belgilaymiz
+# Ishchi papkani belgilaymiz
 WORKDIR /app
 
-# 3. Talab qilingan kutubxonalarni o'rnatamiz
+# Kutubxonalarni o'rnatamiz
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# 4. Barcha kodlarni serverga ko'chiramiz
+# Kodlarni ko'chiramiz
 COPY . .
 
-# 5. Botni ishga tushiramiz
+# Botni ishga tushiramiz
 CMD ["python", "main.py"]
