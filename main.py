@@ -33,9 +33,8 @@ async def cmd_start(message: types.Message):
     user_id = message.from_user.id
     db.register_user(user_id) 
     await message.answer(
-        f"👋 **Assalomu alaykum!**\nSizda kunlik **{FREE_LIMIT} ta** bepul AI tekshiruvi bor.", 
-        reply_markup=get_main_menu(), 
-        parse_mode="Markdown"
+        f"👋 **Assalomu alaykum!**\nSizda kunlik {FREE_LIMIT} ta bepul AI tekshiruvi bor.", 
+        reply_markup=get_main_menu()
     )
 
 # --- ADMIN PANEL ---
@@ -45,20 +44,20 @@ async def cmd_admin(message: types.Message):
         return
     users, premiums, scans = db.get_stats()
     text = (
-        f"👨‍💻 **ADMIN PANEL**\n"
+        f"👨‍💻 ADMIN PANEL\n"
         f"▬▬▬▬▬▬▬▬▬▬▬\n"
-        f"👥 Foydalanuvchilar: **{users}**\n"
-        f"💎 Premium: **{premiums}**\n"
-        f"📸 Skanerlar: **{scans}**"
+        f"👥 Foydalanuvchilar: {users}\n"
+        f"💎 Premium: {premiums}\n"
+        f"📸 Skanerlar: {scans}"
     )
-    await message.answer(text, parse_mode="Markdown")
+    await message.answer(text)
 
 # --- SKANERLASH INFO ---
 @dp.message(F.text == "📸 Skanerlash")
 async def btn_scan_info(message: types.Message):
     await message.answer("📸 Mahsulotning **tarkibi yozilgan joyini** rasmga olib yuboring.\nMen uni Sun'iy Intellekt yordamida o'qib chiqaman.")
 
-# --- 👤 PROFIL (CHIROYLI DIZAYN QAYTARILDI ✅) ---
+# --- 👤 PROFIL ---
 @dp.message(F.text == "👤 Profil")
 async def btn_profile(message: types.Message):
     user_id = message.from_user.id
@@ -67,14 +66,12 @@ async def btn_profile(message: types.Message):
     total_scans, is_prem, today_scans = stats
     name = message.from_user.full_name
 
-    # Dizayn qismi
     if is_prem:
         status_header = "💎 PREMIUM STATUS"
         limit_visual = "♾ Cheksiz"
         desc = "✅ Sizda cheklovlar yo'q!"
     else:
         status_header = "👤 ODDIY FOYDALANUVCHI"
-        # Progress bar chizamiz: ▰▰▰▱▱
         left = max(0, FREE_LIMIT - today_scans)
         filled = min(today_scans, FREE_LIMIT)
         bar = "▰" * filled + "▱" * left
@@ -82,26 +79,26 @@ async def btn_profile(message: types.Message):
         desc = f"🔒 Kunlik limit: {FREE_LIMIT} ta"
 
     text = (
-        f"📂 **FOYDALANUVCHI PROFILI**\n"
+        f"📂 FOYDALANUVCHI PROFILI\n"
         f"▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n"
-        f"👤 **Ism:** {name}\n"
-        f"🆔 **ID:** `{user_id}`\n\n"
-        f"📊 **STATISTIKA**\n"
-        f"• Bugun: **{today_scans}** ta\n"
-        f"• Jami: **{total_scans}** ta\n\n"
-        f"💳 **OBUNA HOLATI**\n"
-        f"• Status: **{status_header}**\n"
+        f"👤 Ism: {name}\n"
+        f"🆔 ID: {user_id}\n\n"
+        f"📊 STATISTIKA\n"
+        f"• Bugun: {today_scans} ta\n"
+        f"• Jami: {total_scans} ta\n\n"
+        f"💳 OBUNA HOLATI\n"
+        f"• Status: {status_header}\n"
         f"• Limit: {limit_visual}\n\n"
-        f"💡 _{desc}_"
+        f"💡 {desc}"
     )
-    await message.answer(text, parse_mode="Markdown")
+    await message.answer(text)
 
 # --- STATISTIKA ---
 @dp.message(F.text == "📊 Statistika")
 async def btn_stats(message: types.Message):
     stats = db.get_user_stats(message.from_user.id)
     count = stats[0] if stats else 0
-    await message.answer(f"📊 Siz jami **{count}** ta mahsulotni AI orqali tekshirdingiz.")
+    await message.answer(f"📊 Siz jami {count} ta mahsulotni AI orqali tekshirdingiz.")
 
 # --- PREMIUM OLISH ---
 @dp.message(F.text.contains("Premium"))
@@ -127,17 +124,17 @@ async def checkout(q): await bot.answer_pre_checkout_query(q.id, ok=True)
 @dp.message(F.successful_payment)
 async def got_payment(message: types.Message):
     db.set_premium(message.from_user.id) 
-    await message.answer("🎉 **To'lov qabul qilindi!** Premium faollashdi.")
+    await message.answer("🎉 To'lov qabul qilindi! Premium faollashdi.")
 
 # --- 🔥 AI BILAN RASM TEKSHIRISH ---
 @dp.message(F.photo)
 async def handle_photo(message: types.Message):
     user_id = message.from_user.id
     if db.check_limit(user_id, FREE_LIMIT):
-        await message.answer("⛔️ **Limit tugadi!** Ertaga keling yoki Premium oling.")
+        await message.answer("⛔️ Limit tugadi! Ertaga keling yoki Premium oling.")
         return
 
-    wait_msg = await message.answer("🧠 **Sun'iy Intellekt o'qimoqda...**\n(Bu 3-5 soniya vaqt oladi)")
+    wait_msg = await message.answer("🧠 Sun'iy Intellekt o'qimoqda...\n(Biroz kuting)")
     
     file_id = message.photo[-1].file_id
     file = await bot.get_file(file_id)
@@ -147,10 +144,11 @@ async def handle_photo(message: types.Message):
     db.add_scan(user_id)
 
     try:
-        # Mana bu yerda Brain ishga tushadi
+        # AI ga yuboramiz
         ai_response = brain.analyze_image_with_ai(file_path)
         await wait_msg.delete()
-        await message.answer(ai_response, parse_mode="Markdown")
+        # DIQQAT: parse_mode ni olib tashladik, endi crash bo'lmaydi!
+        await message.answer(ai_response)
     except Exception as e:
         await wait_msg.delete()
         await message.answer(f"Xatolik: {e}")
@@ -165,20 +163,20 @@ async def handle_text(message: types.Message):
 
     user_id = message.from_user.id
     if db.check_limit(user_id, FREE_LIMIT):
-        await message.answer("⛔️ **Limit tugadi!** Premium oling.")
+        await message.answer("⛔️ Limit tugadi! Premium oling.")
         return
 
-    wait_msg = await message.answer("🧠 **Tahlil qilinmoqda...**")
+    wait_msg = await message.answer("🧠 Tahlil qilinmoqda...")
     db.add_scan(user_id)
     
-    # Matnni ham Brain ga beramiz
     response = brain.analyze_text_with_ai(text)
     
     await wait_msg.delete()
-    await message.answer(response, parse_mode="Markdown")
+    # DIQQAT: parse_mode ni olib tashladik
+    await message.answer(response)
 
 async def main():
-    print("Bot ishga tushdi (Gemini AI + Chiroyli Dizayn) 🚀")
+    print("Bot ishga tushdi (Groq + No Markdown) 🚀")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
