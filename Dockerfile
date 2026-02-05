@@ -1,21 +1,20 @@
-# Yengil Python versiyasini olamiz
 FROM python:3.10-slim
 
-# Kerakli tizim kutubxonalarini o'rnatamiz (Tesseract olib tashlandi, gcc qo'shildi)
+# 1. Tesseract (Rasm o'qigich) ni o'rnatamiz
 RUN apt-get update && apt-get install -y \
-    build-essential \
+    tesseract-ocr \
+    libtesseract-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Ishchi papkani belgilaymiz
+# 2. Ishchi papka
 WORKDIR /app
 
-# Kutubxonalarni o'rnatamiz
+# 3. Kutubxonalar
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Kodlarni ko'chiramiz
+# 4. Kodlar
 COPY . .
 
-# Botni ishga tushiramiz
+# 5. Start
 CMD ["python", "main.py"]
