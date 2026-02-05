@@ -2,11 +2,14 @@ import google.generativeai as genai
 import os
 from PIL import Image
 
-# --- 🔑 SIZNING KALITINGIZ ---
-API_KEY = "AIzaSyC5QZ-GMyg30wmCEmlHO0g2NW4JZiQD2ms"
+# --- 🔑 YANGI KALIT ---
+API_KEY = "AIzaSyC5IRLgBtXRYZBbo9lE5lMMqNh1PIG98i8"
 
 # Googleni sozlaymiz
 genai.configure(api_key=API_KEY)
+
+# Modelni tanlaymiz (Yangi kalit bilan eng tezkor model ishlaydi)
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 # --- 🧠 BOTNING MIYASI ---
 SYSTEM_PROMPT = """
@@ -29,36 +32,17 @@ JAVOB FORMATI (O'zbek tilida):
 ---
 """
 
-# Biz sinab ko'radigan modellar ro'yxati (Ketma-ket tekshiradi)
-MODELS_TO_TRY = [
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-001",
-    "gemini-1.5-pro",
-    "gemini-1.5-pro-001",
-    "gemini-pro-vision"  # Eski ishonchli versiya (zaxira)
-]
-
-def ask_ai_universal(content_list):
-    """Barcha modellarni birma-bir sinab ko'ruvchi funksiya"""
-    errors = []
-    for model_name in MODELS_TO_TRY:
-        try:
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content(content_list)
-            return response.text
-        except Exception as e:
-            errors.append(f"{model_name}: {str(e)[:20]}")
-            continue # Keyingi modelga o'tish
-    
-    # Agar hammasi o'xshamasa:
-    return f"⚠️ Serverda texnik nosozlik. Hamma modellar band.\nXatolar: {', '.join(errors)}"
-
 def analyze_text_with_ai(text_input):
-    return ask_ai_universal([SYSTEM_PROMPT + f"\n\nMatn: {text_input}"])
+    try:
+        response = model.generate_content(SYSTEM_PROMPT + f"\n\nMatn: {text_input}")
+        return response.text
+    except Exception as e:
+        return f"⚠️ Xatolik: {e}"
 
 def analyze_image_with_ai(image_path):
     try:
         img = Image.open(image_path)
-        return ask_ai_universal([SYSTEM_PROMPT, img])
+        response = model.generate_content([SYSTEM_PROMPT, img])
+        return response.text
     except Exception as e:
-        return f"⚠️ Rasmni ochishda xatolik: {e}"
+        return f"⚠️ Xatolik: {e}"
