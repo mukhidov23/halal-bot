@@ -8,17 +8,21 @@ API_KEY = "AIzaSyC5QZ-GMyg30wmCEmlHO0g2NW4JZiQD2ms"
 # Googleni sozlaymiz
 genai.configure(api_key=API_KEY)
 
-# O'ZGARISH SHU YERDA: Model nomini aniq qilib "gemini-1.5-flash-001" ga o'zgartirdik
-try:
-    model = genai.GenerativeModel('gemini-1.5-flash-001')
-except:
-    # Ehtiyot shart: Agar flash ishlamasa, Pro versiyaga o'tadi
-    model = genai.GenerativeModel('gemini-1.5-pro')
+# --- 🔥 TUZATISH SHU YERDA ---
+# Biz eng ishonchli 'gemini-1.5-pro' modelini ishlatamiz.
+# Agar u ham topilmasa, avtomatik 'gemini-pro' (eski versiya) ga o'tadi.
+def get_model():
+    try:
+        return genai.GenerativeModel('gemini-1.5-pro')
+    except:
+        return genai.GenerativeModel('gemini-pro')
+
+model = get_model()
 
 # --- 🧠 BOTNING MIYASI ---
 SYSTEM_PROMPT = """
 Sen professional oziq-ovqat texnologi va Islomiy halol standarti ekspertisan.
-Sening vazifang: Foydalanuvchi yuborgan mahsulot tarkibini (matn yoki rasm) chuqur tahlil qilish.
+Vazifang: Foydalanuvchi yuborgan mahsulot tarkibini (matn yoki rasm) tahlil qilish.
 
 TAHLIL QOIDALARI:
 1. 🔴 HAROM: Agar tarkibda cho'chqa yog'i, cho'chqa jelatini, karmin (E120), shellak (E904), L-sistein (odam yoki cho'chqa sochidan), spirt (alkogol, vino, konyak) bo'lsa.
@@ -32,7 +36,7 @@ JAVOB FORMATI (O'zbek tilida):
 📊 **Status:** [🟢 HALOL / 🔴 HAROM / 🟡 SHUBHALI]
 
 📝 **Tahlil:**
-[Bu yerda qisqa va lo'nda tushuntir. Masalan: "Tarkibida E120 (Karmin) bo'yog'i bor, bu hasharotdan olinadi va harom hisoblanadi."]
+[Bu yerda qisqa va lo'nda tushuntir.]
 ---
 """
 
@@ -42,7 +46,8 @@ def analyze_text_with_ai(text_input):
         response = model.generate_content(SYSTEM_PROMPT + f"\n\nTekshirilayotgan matn: {text_input}")
         return response.text
     except Exception as e:
-        return f"⚠️ Tizimda xatolik: {e}"
+        # Xatolikni chiroyli qilib chiqaramiz
+        return f"⚠️ Uzr, serverda kichik muammo bo'ldi. Iltimos qaytadan urinib ko'ring.\n(Xato: {str(e)[:50]}...)"
 
 def analyze_image_with_ai(image_path):
     """Rasmni AI Vision orqali tekshirish"""
@@ -51,4 +56,4 @@ def analyze_image_with_ai(image_path):
         response = model.generate_content([SYSTEM_PROMPT, img])
         return response.text
     except Exception as e:
-        return f"⚠️ Rasmni o'qishda xatolik: {e}"
+        return f"⚠️ Rasmni o'qishda xatolik yuz berdi. Iltimos, tiniqroq rasm yuboring.\n(Xato: {str(e)[:50]}...)"
