@@ -4,12 +4,11 @@ import os
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
-import brain  # <--- Yangi AI miyani ulaymiz
-import db     # <--- Baza fayli joyida qoladi
+import brain  # <--- AI MIYA
+import db     # <--- BAZA
 
 # --- ⚠️ SOZLAMALAR ---
-# Bu yerga o'z Tokeningizni qo'yasiz
-BOT_TOKEN = "8555323979:AAF41Dc67DbyH1Rpcj6n3PeubPInoFxISmk" 
+BOT_TOKEN = "8555323979:AAF41Dc67DbyH1Rpcj6n3PeubPInoFxISmk"
 PAYMENT_TOKEN = "398062629:TEST:999999999_F91D8F69C042267444B74CC0B3C747757EB0E065"
 
 ADMIN_ID = 6651261925 
@@ -46,8 +45,11 @@ async def cmd_admin(message: types.Message):
         return
     users, premiums, scans = db.get_stats()
     text = (
-        f"👨‍💻 **ADMIN PANEL**\n▬▬▬▬▬▬▬▬▬▬▬\n"
-        f"👥 Foydalanuvchilar: **{users}**\n💎 Premium: **{premiums}**\n📸 Skanerlar: **{scans}**"
+        f"👨‍💻 **ADMIN PANEL**\n"
+        f"▬▬▬▬▬▬▬▬▬▬▬\n"
+        f"👥 Foydalanuvchilar: **{users}**\n"
+        f"💎 Premium: **{premiums}**\n"
+        f"📸 Skanerlar: **{scans}**"
     )
     await message.answer(text, parse_mode="Markdown")
 
@@ -56,20 +58,42 @@ async def cmd_admin(message: types.Message):
 async def btn_scan_info(message: types.Message):
     await message.answer("📸 Mahsulotning **tarkibi yozilgan joyini** rasmga olib yuboring.\nMen uni Sun'iy Intellekt yordamida o'qib chiqaman.")
 
-# --- PROFIL ---
+# --- 👤 PROFIL (CHIROYLI DIZAYN QAYTARILDI ✅) ---
 @dp.message(F.text == "👤 Profil")
 async def btn_profile(message: types.Message):
     user_id = message.from_user.id
     stats = db.get_user_stats(user_id)
     if not stats: stats = (0, 0, 0)
-    total, is_prem, today = stats
+    total_scans, is_prem, today_scans = stats
+    name = message.from_user.full_name
 
+    # Dizayn qismi
     if is_prem:
-        limit_txt = "♾ Cheksiz (Premium)"
+        status_header = "💎 PREMIUM STATUS"
+        limit_visual = "♾ Cheksiz"
+        desc = "✅ Sizda cheklovlar yo'q!"
     else:
-        limit_txt = f"{FREE_LIMIT - today} ta qoldi"
+        status_header = "👤 ODDIY FOYDALANUVCHI"
+        # Progress bar chizamiz: ▰▰▰▱▱
+        left = max(0, FREE_LIMIT - today_scans)
+        filled = min(today_scans, FREE_LIMIT)
+        bar = "▰" * filled + "▱" * left
+        limit_visual = f"{bar} ({left} ta qoldi)"
+        desc = f"🔒 Kunlik limit: {FREE_LIMIT} ta"
 
-    text = f"👤 **PROFIL**\n🆔 `{user_id}`\n📊 Jami: {total} ta\n📅 Bugun: {today} ta\n🔒 Limit: {limit_txt}"
+    text = (
+        f"📂 **FOYDALANUVCHI PROFILI**\n"
+        f"▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n"
+        f"👤 **Ism:** {name}\n"
+        f"🆔 **ID:** `{user_id}`\n\n"
+        f"📊 **STATISTIKA**\n"
+        f"• Bugun: **{today_scans}** ta\n"
+        f"• Jami: **{total_scans}** ta\n\n"
+        f"💳 **OBUNA HOLATI**\n"
+        f"• Status: **{status_header}**\n"
+        f"• Limit: {limit_visual}\n\n"
+        f"💡 _{desc}_"
+    )
     await message.answer(text, parse_mode="Markdown")
 
 # --- STATISTIKA ---
@@ -115,17 +139,15 @@ async def handle_photo(message: types.Message):
 
     wait_msg = await message.answer("🧠 **Sun'iy Intellekt o'qimoqda...**\n(Bu 3-5 soniya vaqt oladi)")
     
-    # Rasmni yuklab olamiz
     file_id = message.photo[-1].file_id
     file = await bot.get_file(file_id)
     file_path = f"temp_{user_id}.jpg"
     await bot.download_file(file.file_path, file_path)
 
-    # Bazaga yozamiz
     db.add_scan(user_id)
 
-    # AI ga yuboramiz
     try:
+        # Mana bu yerda Brain ishga tushadi
         ai_response = brain.analyze_image_with_ai(file_path)
         await wait_msg.delete()
         await message.answer(ai_response, parse_mode="Markdown")
@@ -139,7 +161,6 @@ async def handle_photo(message: types.Message):
 @dp.message(F.text)
 async def handle_text(message: types.Message):
     text = message.text
-    # Qisqa so'zlarni va buyruqlarni o'tkazib yuboramiz
     if len(text) < 4 or text.lower() in ["/start", "salom", "start"]: return
 
     user_id = message.from_user.id
@@ -150,13 +171,14 @@ async def handle_text(message: types.Message):
     wait_msg = await message.answer("🧠 **Tahlil qilinmoqda...**")
     db.add_scan(user_id)
     
+    # Matnni ham Brain ga beramiz
     response = brain.analyze_text_with_ai(text)
     
     await wait_msg.delete()
     await message.answer(response, parse_mode="Markdown")
 
 async def main():
-    print("Bot ishga tushdi (Gemini AI Powered) 🚀")
+    print("Bot ishga tushdi (Gemini AI + Chiroyli Dizayn) 🚀")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":

@@ -8,8 +8,12 @@ API_KEY = "AIzaSyC5QZ-GMyg30wmCEmlHO0g2NW4JZiQD2ms"
 # Googleni sozlaymiz
 genai.configure(api_key=API_KEY)
 
-# Modelni tanlaymiz
-model = genai.GenerativeModel('gemini-1.5-flash')
+# O'ZGARISH SHU YERDA: Model nomini aniq qilib "gemini-1.5-flash-001" ga o'zgartirdik
+try:
+    model = genai.GenerativeModel('gemini-1.5-flash-001')
+except:
+    # Ehtiyot shart: Agar flash ishlamasa, Pro versiyaga o'tadi
+    model = genai.GenerativeModel('gemini-1.5-pro')
 
 # --- 🧠 BOTNING MIYASI ---
 SYSTEM_PROMPT = """
@@ -44,7 +48,6 @@ def analyze_image_with_ai(image_path):
     """Rasmni AI Vision orqali tekshirish"""
     try:
         img = Image.open(image_path)
-        # AIga ham promptni, ham rasmni beramiz
         response = model.generate_content([SYSTEM_PROMPT, img])
         return response.text
     except Exception as e:
