@@ -8,9 +8,6 @@ API_KEY = "AIzaSyC5IRLgBtXRYZBbo9lE5lMMqNh1PIG98i8"
 # Googleni sozlaymiz
 genai.configure(api_key=API_KEY)
 
-# Modelni tanlaymiz (Yangi kalit bilan eng tezkor model ishlaydi)
-model = genai.GenerativeModel('gemini-1.5-flash')
-
 # --- 🧠 BOTNING MIYASI ---
 SYSTEM_PROMPT = """
 Sen professional oziq-ovqat texnologi va Islomiy halol standarti ekspertisan.
@@ -32,17 +29,38 @@ JAVOB FORMATI (O'zbek tilida):
 ---
 """
 
+# --- 🔥 ENG MUHIM JOYI: UNIVERSAL FUNKSIYA ---
+def generate_content_safe(contents):
+    # Biz sinab ko'radigan modellar ro'yxati (Ketma-ketlikda)
+    models_to_try = [
+        "gemini-1.5-flash",
+        "gemini-1.5-pro",
+        "gemini-pro",         # Eski matn modeli
+        "gemini-pro-vision"   # Eski rasm modeli
+    ]
+    
+    last_error = ""
+    
+    for model_name in models_to_try:
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(contents)
+            return response.text
+        except Exception as e:
+            # Agar xato bersa, keyingi modelga o'tamiz
+            last_error = str(e)
+            continue
+
+    # Agar hammasi o'xshamasa:
+    return f"⚠️ Uzr, serverda hamma modellar band.\nXato: {last_error[:100]}"
+
 def analyze_text_with_ai(text_input):
-    try:
-        response = model.generate_content(SYSTEM_PROMPT + f"\n\nMatn: {text_input}")
-        return response.text
-    except Exception as e:
-        return f"⚠️ Xatolik: {e}"
+    return generate_content_safe(SYSTEM_PROMPT + f"\n\nMatn: {text_input}")
 
 def analyze_image_with_ai(image_path):
     try:
         img = Image.open(image_path)
-        response = model.generate_content([SYSTEM_PROMPT, img])
-        return response.text
+        # Prompt va Rasmni birga yuboramiz
+        return generate_content_safe([SYSTEM_PROMPT, img])
     except Exception as e:
-        return f"⚠️ Xatolik: {e}"
+        return f"⚠️ Rasmni ochishda xatolik: {e}"
