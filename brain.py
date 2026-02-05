@@ -1,3 +1,4 @@
+
 import re
 import pytesseract
 from PIL import Image
@@ -7,8 +8,8 @@ from rapidfuzz import process, fuzz
 # Shu yerga xohlagan reklamangizni yozasiz. U har bir javob tagida chiqadi.
 AD_BANNER = """
 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-🥩 **Tavsiya qilamiz:** "Halol Food" kolbasalari!
-📞 Buyurtma uchun: +998 90 123 45 67
+🥩 **Tavsiya qilamiz:** "Halol Food" Mahsulotlari!
+📞 Buyurtma uchun: +998 99 801 40 60
 """
 
 # --- 🧠 AQLLI SUHBAT (CHIT-CHAT) ---
