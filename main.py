@@ -5,9 +5,11 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from brain import HalolScannerEngine, INGREDIENTS_DB
+from PIL import Image
+import pytesseract
 
 # --- ⚠️ SOZLAMALAR ---
-# Tokenlar (Railway Environment Variables dan olish yaxshiroq, lekin ishlashi uchun shu yerda qoldirdim)
+# Tokenlar
 BOT_TOKEN = "8555323979:AAF41Dc67DbyH1Rpcj6n3PeubPInoFxISmk"
 PAYMENT_TOKEN = "398062629:TEST:999999999_F91D8F69C042267444B74CC0B3C747757EB0E065"
 
@@ -20,10 +22,10 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 engine = HalolScannerEngine(INGREDIENTS_DB)
 
-# 💾 XOTIRA (Database o'rniga vaqtincha xotira)
+# 💾 XOTIRA
 PREMIUM_USERS = []
-USER_SCANS = {} # {user_id: scan_count}
-ALL_USERS = set() # Barcha foydalanuvchilar ro'yxati
+USER_SCANS = {} 
+ALL_USERS = set() 
 
 # --- MENU TUGMALARI ---
 def get_main_menu():
@@ -36,21 +38,19 @@ def get_main_menu():
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     user_id = message.from_user.id
-    ALL_USERS.add(user_id) # Bazaga qo'shamiz
+    ALL_USERS.add(user_id) 
     await message.answer(
         f"👋 **Assalomu alaykum!**\nSizda kunlik **{FREE_LIMIT} ta** bepul tekshirish imkoniyati bor.", 
         reply_markup=get_main_menu(), 
         parse_mode="Markdown"
     )
 
-# --- 🕵️‍♂️ ADMIN PANEL (FAQAT SIZ UCHUN) ---
+# --- 🕵️‍♂️ ADMIN PANEL ---
 @dp.message(Command("admin"))
 async def cmd_admin(message: types.Message):
-    # Agar ID sizniki bo'lmasa - javob bermaymiz
     if message.from_user.id != ADMIN_ID:
         return
 
-    # Statistika hisoblash
     total_users = len(ALL_USERS)
     premium_count = len(PREMIUM_USERS)
     active_scans = sum(USER_SCANS.values())
@@ -61,7 +61,7 @@ async def cmd_admin(message: types.Message):
         f"👥 Jami foydalanuvchilar: **{total_users}** ta\n"
         f"💎 Premium olganlar: **{premium_count}** ta\n"
         f"📸 Jami qilingan skanerlar: **{active_scans}** ta\n\n"
-        f"✅ Server barqaror ishlamoqda!"
+        f"✅ Server va Tesseract ishlamoqda!"
     )
     await message.answer(text, parse_mode="Markdown")
 
@@ -81,7 +81,6 @@ async def btn_profile(message: types.Message):
         status_header = "👤 ODDIY FOYDALANUVCHI"
         used = min(count, FREE_LIMIT)
         left = max(0, FREE_LIMIT - count)
-        # Progress Bar
         bar = "▰" * used + "▱" * left
         limit_visual = f"{bar} ({left} ta qoldi)"
         desc = f"🔒 Kunlik limit: {FREE_LIMIT} ta"
@@ -101,7 +100,7 @@ async def btn_profile(message: types.Message):
     )
     await message.answer(text, parse_mode="Markdown")
 
-# --- STATISTIKA (USER UCHUN) ---
+# --- STATISTIKA ---
 @dp.message(F.text == "📊 Statistika")
 async def btn_stats(message: types.Message):
     count = USER_SCANS.get(message.from_user.id, 0)
@@ -125,7 +124,7 @@ async def buy_premium(message: types.Message):
         payload="click_sub_limit",
         provider_token=PAYMENT_TOKEN,
         currency="UZS",
-        prices=[types.LabeledPrice(label="Obuna narxi", amount=900000)], # 9000 so'm
+        prices=[types.LabeledPrice(label="Obuna narxi", amount=900000)], 
         start_parameter="buy_premium",
         is_flexible=False
     )
@@ -152,30 +151,39 @@ def get_status_emoji(status):
     if status == "ZARARLI": return "🟠"
     return "🟢"
 
-# --- 🔥 1. RASM QABUL QILISH ---
+# --- 🔥 RASM QABUL QILISH (YANGILANGAN) ---
 @dp.message(F.photo)
 async def handle_photo(message: types.Message):
     user_id = message.from_user.id
-    ALL_USERS.add(user_id) # Ro'yxatga olish
+    ALL_USERS.add(user_id) 
 
     if check_limit_reached(user_id):
         await message.answer("⛔️ **Limit tugadi!** Davom ettirish uchun Premium oling.")
         return
 
     msg = await message.answer("⏳ Rasm o'qilmoqda...")
+    temp_filename = f"temp_{user_id}.jpg"
+    
     try:
+        # 1. Rasmni yuklab olamiz
         photo = message.photo[-1]
         file = await bot.get_file(photo.file_id)
-        temp_filename = f"temp_{user_id}.jpg"
         await bot.download_file(file.file_path, temp_filename)
         
+        # 2. Hisobni oshiramiz
         USER_SCANS[user_id] = USER_SCANS.get(user_id, 0) + 1
-        result = engine.scan_image(temp_filename)
         
+        # 3. MATNNI O'QISH (O'zimiz o'qiymiz)
+        scanned_text = pytesseract.image_to_string(Image.open(temp_filename))
+        
+        # 4. TEKSHIRISH
+        result = engine.check_text(scanned_text)
+        
+        # 5. JAVOB TAYYORLASH
         if result['status'] == "ERROR":
-            response = f"⚠️ {result['message']}"
+             response = f"⚠️ {result['message']}"
         elif result['status'] == "GREEN":
-            response = "🟢 **Xavfli kodlar topilmadi**\n(Tarkibni o'zingiz ham ko'zdan kechiring)."
+            response = "🟢 **Xavfli kodlar topilmadi**"
         else:
             response = f"{result['message']}\n\n"
             if "details" in result:
@@ -185,14 +193,25 @@ async def handle_photo(message: types.Message):
                     ing_name = ing.names[1].title() if len(ing.names) > 1 else ing.names[0]
                     response += f"{icon} **{ing.code}** ({ing_name}) - {ing.status}\n"
 
+        # 🔍 ISHONCH UCHUN: Bot o'qigan matnni ko'rsatamiz
+        # Agar matn bo'sh bo'lsa yoki juda qisqa bo'lsa
+        clean_text = scanned_text.strip()
+        if len(clean_text) < 5:
+            preview_text = "⚠️ (Rasmda matn aniqlanmadi. Iltimos, tiniqroq rasm yuboring)."
+        else:
+            preview_text = clean_text[:300] + "..." if len(clean_text) > 300 else clean_text
+
+        final_msg = f"{response}\n\n📝 **Bot o'qigan matn parchasi:**\n_{preview_text}_"
+
         if os.path.exists(temp_filename): os.remove(temp_filename)
         await msg.delete()
-        await message.answer(response, parse_mode="Markdown")
+        await message.answer(final_msg, parse_mode="Markdown")
 
     except Exception as e:
-        await message.answer(f"Xatolik: {e}")
+        await message.answer(f"Xatolik yuz berdi: {e}")
+        if os.path.exists(temp_filename): os.remove(temp_filename)
 
-# --- 🔥 2. MATN QABUL QILISH ---
+# --- 🔥 MATN QABUL QILISH ---
 @dp.message(F.text)
 async def main_logic(message: types.Message):
     text = message.text.lower()
