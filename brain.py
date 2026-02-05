@@ -8,7 +8,31 @@ API_KEY = "AIzaSyC5IRLgBtXRYZBbo9lE5lMMqNh1PIG98i8"
 # Googleni sozlaymiz
 genai.configure(api_key=API_KEY)
 
-# --- 🧠 BOTNING MIYASI ---
+# --- 🧠 MODELNI AVTOMATIK TOPISH ---
+def get_best_model():
+    try:
+        # Google-dan bor modellarni ro'yxatini so'raymiz
+        for m in genai.list_models():
+            # Agar model matn va rasm yarata olsa (generateContent), shuni olamiz
+            if 'generateContent' in m.supported_generation_methods:
+                if 'flash' in m.name: # Flash modelni afzal ko'ramiz (tezligi uchun)
+                    return genai.GenerativeModel(m.name)
+        
+        # Agar Flash topilmasa, birinchi uchragan ishlaydigan modelni olamiz
+        for m in genai.list_models():
+             if 'generateContent' in m.supported_generation_methods:
+                 return genai.GenerativeModel(m.name)
+                 
+    except Exception as e:
+        print(f"Model qidirishda xato: {e}")
+    
+    # Hech narsa topilmasa, majburan standartini qo'yamiz
+    return genai.GenerativeModel('gemini-1.5-flash')
+
+# Modelni ishga tushiramiz
+model = get_best_model()
+
+# --- 🧠 SYSTEM PROMPT ---
 SYSTEM_PROMPT = """
 Sen professional oziq-ovqat texnologi va Islomiy halol standarti ekspertisan.
 Vazifang: Foydalanuvchi yuborgan mahsulot tarkibini (matn yoki rasm) tahlil qilish.
@@ -29,38 +53,17 @@ JAVOB FORMATI (O'zbek tilida):
 ---
 """
 
-# --- 🔥 ENG MUHIM JOYI: UNIVERSAL FUNKSIYA ---
-def generate_content_safe(contents):
-    # Biz sinab ko'radigan modellar ro'yxati (Ketma-ketlikda)
-    models_to_try = [
-        "gemini-1.5-flash",
-        "gemini-1.5-pro",
-        "gemini-pro",         # Eski matn modeli
-        "gemini-pro-vision"   # Eski rasm modeli
-    ]
-    
-    last_error = ""
-    
-    for model_name in models_to_try:
-        try:
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content(contents)
-            return response.text
-        except Exception as e:
-            # Agar xato bersa, keyingi modelga o'tamiz
-            last_error = str(e)
-            continue
-
-    # Agar hammasi o'xshamasa:
-    return f"⚠️ Uzr, serverda hamma modellar band.\nXato: {last_error[:100]}"
-
 def analyze_text_with_ai(text_input):
-    return generate_content_safe(SYSTEM_PROMPT + f"\n\nMatn: {text_input}")
+    try:
+        response = model.generate_content(SYSTEM_PROMPT + f"\n\nMatn: {text_input}")
+        return response.text
+    except Exception as e:
+        return f"⚠️ Xatolik: {e}\n(Model: {model.model_name if hasattr(model, 'model_name') else 'Noma\'lum'})"
 
 def analyze_image_with_ai(image_path):
     try:
         img = Image.open(image_path)
-        # Prompt va Rasmni birga yuboramiz
-        return generate_content_safe([SYSTEM_PROMPT, img])
+        response = model.generate_content([SYSTEM_PROMPT, img])
+        return response.text
     except Exception as e:
         return f"⚠️ Rasmni ochishda xatolik: {e}"
