@@ -201,27 +201,49 @@ async def handle_photo(message: types.Message):
         await message.answer(f"Xatolik: {e}")
         if os.path.exists(temp_filename): os.remove(temp_filename)
 
-# --- 🔥 MATN QABUL QILISH ---
+# --- 🔥 MATN QABUL QILISH (PROFESSIONAL VERSIYA) ---
 @dp.message(F.text)
 async def main_logic(message: types.Message):
     text = message.text.lower()
-    
-    # Agar juda qisqa bo'lsa yoki salomlashish bo'lsa
-    if len(text) < 3 or text in ["salom", "start", "/start"]:
-        return # Indamaymiz (chunki tepadagi handlerlar ushlaydi)
-
     user_id = message.from_user.id
-    
-    if db.check_limit(user_id, FREE_LIMIT):
-        await message.answer("⛔️ **Limit tugadi!** Premium oling.")
+
+    # 1. SALOM-ALIK FILTRI (Odamday gaplashish uchun)
+    greetings = ["salom", "qalesiz", "assalomu", "hello", "hi", "start", "bot", "rahmat"]
+    if any(word in text for word in greetings):
+        await message.answer("👋 Assalomu alaykum! Menga biror mahsulot tarkibini yuboring (Rasm yoki matn).")
         return
 
-    db.add_scan(user_id)
+    # 2. JUDA QISQA YOZUVLAR FILTRI
+    if len(text) < 3:
+        await message.answer("⚠️ Juda qisqa yozuv. Iltimos, E-kodni (masalan: E120) yoki tarkibni to'liqroq yozing.")
+        return
 
+    # 3. LIMIT TEKSHIRISH
+    if db.check_limit(user_id, FREE_LIMIT):
+        await message.answer("⛔️ **Limit tugadi!** Davom ettirish uchun Premium oling.")
+        return
+
+    # 4. TEKSHIRISH VA JAVOB
+    db.add_scan(user_id) # Bazaga hisoblaymiz
     result = engine.check_text(message.text)
+    
+    # 5. PROFESSIONAL TEKSHIRUV (Futbol vs Ovqat)
+    found_ingredients_count = len(result.get("details", []))
+
     if result['status'] == "GREEN":
-        resp = "🟢 **Xavfli kodlar topilmadi**"
+        if found_ingredients_count == 0:
+            # Agar bot matn ichidan hech narsa topa olmasa (Masalan: "Moshina")
+            resp = (
+                "🤷‍♂️ **Tushunarsiz matn.**\n\n"
+                "Men bu yozuv ichidan hech qanday oziq-ovqat kodi (E-kod) yoki ingrediyent topa olmadim.\n"
+                "Iltimos, mahsulot qadog'idagi **tarkib** qismini yozing yoki rasmga olib yuboring."
+            )
+        else:
+            # Agar biror xavfsiz narsa topsa (Masalan: "Suv, shakar")
+            resp = "🟢 **Xavfli kodlar topilmadi**\n(Tarkib toza ko'rinyapti)"
+            
     else:
+        # Agar xavfli narsa topsa
         resp = f"{result['message']}\n\n"
         for item in result.get("details", []):
             ing = item['ingredient']
@@ -232,7 +254,7 @@ async def main_logic(message: types.Message):
     await message.answer(resp, parse_mode="Markdown")
 
 async def main():
-    print("Bot ishga tushdi... (Baza ulangan)")
+    print("Bot ishga tushdi... (Baza ulangan, Smart Filter yoqilgan)")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
