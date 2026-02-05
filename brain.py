@@ -1,15 +1,21 @@
 import os
 import base64
-from groq import Groq
+from openai import OpenAI
 
-# --- 🔑 SIZNING GROQ KALITINGIZ ---
-API_KEY = "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"
+# --- 🔑 SIZNING OPENROUTER KALITINGIZ ---
+API_KEY = "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"
 
-# Groq mijozini ulaymiz
-client = Groq(api_key=API_KEY)
+# --- ⚙️ SOZLAMALAR ---
+# Biz OpenRouter manzili orqali ulaymiz
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=API_KEY,
+)
 
-# Biz ishlatadigan model (Rasm va Matn uchun)
-MODEL = "llama-3.2-11b-vision-preview"
+# --- 🔥 MODEL TANLASH ---
+# Hozirgi eng zo'r va TEKIN model (OpenRouterda):
+# Google Gemini 2.0 Flash Lite (Juda tez va bepul)
+MODEL = "google/gemini-2.0-flash-lite-preview-02-05:free"
 
 # --- 🧠 TIZIM BUYRUQLARI ---
 SYSTEM_PROMPT = """
@@ -30,33 +36,32 @@ JAVOB FORMATI:
 [Qisqa va aniq tushuntirish]
 """
 
-# Rasmni kodga (base64) aylantirish funksiyasi
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
 
 def analyze_text_with_ai(text_input):
     try:
-        completion = client.chat.completions.create(
+        response = client.chat.completions.create(
             model=MODEL,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": f"Matnni tekshir: {text_input}"}
             ],
-            temperature=0.1,
-            max_tokens=600
+            extra_headers={
+                "HTTP-Referer": "https://t.me/halal_bot", 
+                "X-Title": "Halal Scanner Bot",
+            }
         )
-        return completion.choices[0].message.content
+        return response.choices[0].message.content
     except Exception as e:
-        return f"⚠️ Groq xatosi: {e}"
+        return f"⚠️ OpenRouter xatosi: {e}"
 
 def analyze_image_with_ai(image_path):
     try:
-        # Rasmni tayyorlaymiz
         base64_image = encode_image(image_path)
         
-        # Groqqa yuboramiz
-        completion = client.chat.completions.create(
+        response = client.chat.completions.create(
             model=MODEL,
             messages=[
                 {
@@ -67,14 +72,16 @@ def analyze_image_with_ai(image_path):
                             "type": "image_url",
                             "image_url": {
                                 "url": f"data:image/jpeg;base64,{base64_image}"
-                            },
-                        },
-                    ],
+                            }
+                        }
+                    ]
                 }
             ],
-            temperature=0.1,
-            max_tokens=600
+            extra_headers={
+                "HTTP-Referer": "https://t.me/halal_bot", 
+                "X-Title": "Halal Scanner Bot",
+            }
         )
-        return completion.choices[0].message.content
+        return response.choices[0].message.content
     except Exception as e:
         return f"⚠️ Rasm tahlilida xatolik: {e}"
