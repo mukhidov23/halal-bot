@@ -8,17 +8,6 @@ API_KEY = "AIzaSyC5QZ-GMyg30wmCEmlHO0g2NW4JZiQD2ms"
 # Googleni sozlaymiz
 genai.configure(api_key=API_KEY)
 
-# --- 🔥 TUZATISH SHU YERDA ---
-# Biz eng ishonchli 'gemini-1.5-pro' modelini ishlatamiz.
-# Agar u ham topilmasa, avtomatik 'gemini-pro' (eski versiya) ga o'tadi.
-def get_model():
-    try:
-        return genai.GenerativeModel('gemini-1.5-pro')
-    except:
-        return genai.GenerativeModel('gemini-pro')
-
-model = get_model()
-
 # --- 🧠 BOTNING MIYASI ---
 SYSTEM_PROMPT = """
 Sen professional oziq-ovqat texnologi va Islomiy halol standarti ekspertisan.
@@ -40,20 +29,36 @@ JAVOB FORMATI (O'zbek tilida):
 ---
 """
 
+# Biz sinab ko'radigan modellar ro'yxati (Ketma-ket tekshiradi)
+MODELS_TO_TRY = [
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-001",
+    "gemini-1.5-pro",
+    "gemini-1.5-pro-001",
+    "gemini-pro-vision"  # Eski ishonchli versiya (zaxira)
+]
+
+def ask_ai_universal(content_list):
+    """Barcha modellarni birma-bir sinab ko'ruvchi funksiya"""
+    errors = []
+    for model_name in MODELS_TO_TRY:
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(content_list)
+            return response.text
+        except Exception as e:
+            errors.append(f"{model_name}: {str(e)[:20]}")
+            continue # Keyingi modelga o'tish
+    
+    # Agar hammasi o'xshamasa:
+    return f"⚠️ Serverda texnik nosozlik. Hamma modellar band.\nXatolar: {', '.join(errors)}"
+
 def analyze_text_with_ai(text_input):
-    """Matnni AI orqali tekshirish"""
-    try:
-        response = model.generate_content(SYSTEM_PROMPT + f"\n\nTekshirilayotgan matn: {text_input}")
-        return response.text
-    except Exception as e:
-        # Xatolikni chiroyli qilib chiqaramiz
-        return f"⚠️ Uzr, serverda kichik muammo bo'ldi. Iltimos qaytadan urinib ko'ring.\n(Xato: {str(e)[:50]}...)"
+    return ask_ai_universal([SYSTEM_PROMPT + f"\n\nMatn: {text_input}"])
 
 def analyze_image_with_ai(image_path):
-    """Rasmni AI Vision orqali tekshirish"""
     try:
         img = Image.open(image_path)
-        response = model.generate_content([SYSTEM_PROMPT, img])
-        return response.text
+        return ask_ai_universal([SYSTEM_PROMPT, img])
     except Exception as e:
-        return f"⚠️ Rasmni o'qishda xatolik yuz berdi. Iltimos, tiniqroq rasm yuboring.\n(Xato: {str(e)[:50]}...)"
+        return f"⚠️ Rasmni ochishda xatolik: {e}"
