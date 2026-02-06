@@ -1,15 +1,17 @@
 FROM python:3.10-slim
 
-# 1. Tesseract (Rasm o'qigich) ni o'rnatamiz
+# 1. Kerakli tizim kutubxonalari (Postgres va Tesseract uchun)
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     libtesseract-dev \
+    libpq-dev \
+    gcc \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. Ishchi papka
 WORKDIR /app
 
-# 3. Kutubxonalar
+# 3. Python kutubxonalari
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
