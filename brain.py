@@ -3,7 +3,7 @@ import pytesseract
 from PIL import Image
 from rapidfuzz import process, fuzz
 
-# --- 📢 REKLAMA BANNERI ---
+# --- 📢 REKLAMA ---
 AD_BANNER = """
 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 🥩 **Tavsiya qilamiz:** "Halol Food" Mahsulotlari!
@@ -13,13 +13,12 @@ AD_BANNER = """
 # --- 🧠 AQLLI SUHBAT ---
 def handle_smart_chat(text):
     text = text.lower().strip()
-    greetings = ["salom", "assalomu", "qale", "qalaysiz", "start"]
+    greetings = ["salom", "assalomu", "qale", "qalaysiz", "start", "/start"]
     if any(x in text for x in greetings):
         return "Va alaykum assalom! 👋\nMen 500 dan ortiq E-kodlarni taniyman. Mahsulot tarkibini yozing yoki rasmga olib yuboring."
     return None
 
 # --- 📚 KATTA LUG'AT (DATABASE) ---
-# PDF asosida va Islomiy standartlar bo'yicha to'ldirildi
 INGREDIENTS_DB = {
     # 🔴 --- HAROM (QIZIL) ---
     "120": {"name": "Karmin (E120)", "status": "HAROM", "desc": "🔴 Hasharotlardan (Qizil qo'ng'iz) olinadigan bo'yoq."},
@@ -37,7 +36,6 @@ INGREDIENTS_DB = {
     "ham": {"name": "Ham (Cho'chqa)", "status": "HAROM", "desc": "🔴 Cho'chqa go'shti."},
 
     # 🟡 --- SHUBHALI (SARIQ - MASHBUH) ---
-    # Bu moddalar hayvondan yoki o'simlikdan olinishi mumkin. Aniq emas.
     "471": {"name": "E471 (Mono-diglitserid)", "status": "MASHKUK", "desc": "🟡 Yog' kislotasi. O'simlik yoki hayvon yog'i ekanligi noma'lum."},
     "472": {"name": "E472 (a-f) Efirlar", "status": "MASHKUK", "desc": "🟡 Yog' kislotasi efirlari. Kelib chiqishi shubhali."},
     "473": {"name": "E473 (Yog' kislotasi)", "status": "MASHKUK", "desc": "🟡 Yog' saxarozasi. Manbasi noaniq."},
@@ -75,7 +73,7 @@ INGREDIENTS_DB = {
     "1000": {"name": "E1000 (Xol kislotasi)", "status": "MASHKUK", "desc": "🟡 Sigir safrosidan olinishi mumkin."},
     "1105": {"name": "E1105 (Lizotsim)", "status": "MASHKUK", "desc": "🟡 Tuxum oqsilidan olinadi (Agar tovuq halol so'yilgan bo'lsa)."},
 
-    # 🟢 --- HALOL (YASHIL) - PDF dan olingan va tasdiqlangan ---
+    # 🟢 --- HALOL (YASHIL) ---
     "100": {"name": "Kurkumin (E100)", "status": "HALOL", "desc": "🟢 O'simlik (Zarshava)."},
     "101": {"name": "Riboflavin (E101)", "status": "HALOL", "desc": "🟢 Vitamin B2."},
     "102": {"name": "Tartrazin (E102)", "status": "HALOL", "desc": "🟢 Sintetik sariq bo'yoq."},
@@ -217,6 +215,7 @@ KEYWORD_MAPPING = {
 
 def analyze_text_with_ai(text_input):
     chat_response = handle_smart_chat(text_input)
+    # DIQQAT: Bu yerda endi 2 ta narsa qaytadi! (text, list)
     if chat_response: return (chat_response + "\n" + AD_BANNER, [])
     return check_content(text_input)
 
@@ -225,9 +224,11 @@ def analyze_image_with_ai(image_path):
         img = Image.open(image_path)
         text = pytesseract.image_to_string(img)
         if len(text.strip()) < 3:
+            # DIQQAT: Xatolik bo'lsa ham 2 ta narsa qaytishi SHART!
             return ("⚠️ Rasm juda xira. Tiniqroq qilib qayta yuboring.", [])
         return check_content(text)
     except Exception as e:
+        # DIQQAT: Exception bo'lsa ham 2 ta narsa qaytishi SHART!
         return (f"⚠️ Xatolik: {e}", [])
 
 def check_content(text):
@@ -240,7 +241,6 @@ def check_content(text):
 
     for code in all_matches:
         clean_code = code
-        # Agar kod 4 xonali bo'lsa va oxirida harf bo'lsa (masalan 150d)
         if clean_code not in INGREDIENTS_DB and clean_code[:3] in INGREDIENTS_DB:
              clean_code = clean_code[:3]
              
@@ -252,7 +252,7 @@ def check_content(text):
             if clean_code not in unknown_codes:
                 unknown_codes.append(clean_code)
 
-    # So'zlarni qidirish (Fuzzy Search)
+    # So'zlarni qidirish
     words = text.split()
     for word in words:
         if len(word) < 4: continue
@@ -266,7 +266,9 @@ def check_content(text):
                     if item not in found_items:
                         found_items.append(item)
 
-    return format_result(found_items, unknown_codes)
+    result_text = format_result(found_items, unknown_codes)
+    # DIQQAT: Ikkita narsa qaytaryapmiz!
+    return (result_text, unknown_codes)
 
 def format_result(items, unknown_codes):
     if not items and not unknown_codes:
