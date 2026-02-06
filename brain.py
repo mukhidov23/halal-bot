@@ -3,7 +3,7 @@ import pytesseract
 from PIL import Image
 from rapidfuzz import process, fuzz
 
-# --- 📢 REKLAMA ---
+# --- 📢 REKLAMA BANNERI ---
 AD_BANNER = """
 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 🥩 **Tavsiya qilamiz:** "Halol Food" Mahsulotlari!
@@ -13,7 +13,7 @@ AD_BANNER = """
 # --- 🧠 AQLLI SUHBAT ---
 def handle_smart_chat(text):
     text = text.lower().strip()
-    greetings = ["salom", "assalomu", "qale", "qalaysiz", "start", "/start"]
+    greetings = ["salom", "assalomu", "qale", "qalaysiz", "start"]
     if any(x in text for x in greetings):
         return "Va alaykum assalom! 👋\nMen 500 dan ortiq E-kodlarni taniyman. Mahsulot tarkibini yozing yoki rasmga olib yuboring."
     return None
@@ -215,7 +215,7 @@ KEYWORD_MAPPING = {
 
 def analyze_text_with_ai(text_input):
     chat_response = handle_smart_chat(text_input)
-    # DIQQAT: Bu yerda endi 2 ta narsa qaytadi! (text, list)
+    # DIQQAT: (matn, list) formatida qaytarish SHART
     if chat_response: return (chat_response + "\n" + AD_BANNER, [])
     return check_content(text_input)
 
@@ -224,16 +224,13 @@ def analyze_image_with_ai(image_path):
         img = Image.open(image_path)
         text = pytesseract.image_to_string(img)
         if len(text.strip()) < 3:
-            # DIQQAT: Xatolik bo'lsa ham 2 ta narsa qaytishi SHART!
             return ("⚠️ Rasm juda xira. Tiniqroq qilib qayta yuboring.", [])
         return check_content(text)
     except Exception as e:
-        # DIQQAT: Exception bo'lsa ham 2 ta narsa qaytishi SHART!
         return (f"⚠️ Xatolik: {e}", [])
 
 def check_content(text):
     text = text.lower()
-    # E-kodlarni aniqlash (E100, E 100, 1442)
     all_matches = re.findall(r'[eE]\s*-?\s*(\d{3,4}[a-z]?)', text)
     
     found_items = []
@@ -252,7 +249,6 @@ def check_content(text):
             if clean_code not in unknown_codes:
                 unknown_codes.append(clean_code)
 
-    # So'zlarni qidirish
     words = text.split()
     for word in words:
         if len(word) < 4: continue
@@ -266,8 +262,8 @@ def check_content(text):
                     if item not in found_items:
                         found_items.append(item)
 
+    # 🛑 TUZATILGAN JOY: Ikkita qiymat qaytarilyapti (String, List)
     result_text = format_result(found_items, unknown_codes)
-    # DIQQAT: Ikkita narsa qaytaryapmiz!
     return (result_text, unknown_codes)
 
 def format_result(items, unknown_codes):
