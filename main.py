@@ -35,7 +35,7 @@ async def cmd_start(message: types.Message):
         reply_markup=get_main_menu()
     )
 
-# --- 🔥 CHIROYLI ADMIN PANEL ---
+# --- 🔥 ADMIN PANEL ---
 @dp.message(Command("admin"))
 async def cmd_admin(message: types.Message):
     if message.from_user.id != ADMIN_ID: return
@@ -71,15 +71,24 @@ async def cmd_send_all(message: types.Message, command: CommandObject):
     
     await message.answer(f"✅ **Yuborildi:** {sent} ta")
 
-# --- 🔥 CHIROYLI PROFIL ---
-@dp.message(F.text == "👤 Profil")
+# --- 📸 SKANERLASH TUGMASI ---
+# Bu yerda .contains ishlatdik, shunda aniq ushlaydi
+@dp.message(F.text.contains("Skanerlash"))
+async def btn_scan_info(message: types.Message):
+    await message.answer(
+        "📸 **Skanerlash rejimi**\n\n"
+        "Mahsulotning **tarkibi yozilgan joyini** (Ingredientlar) tiniq qilib rasmga olib yuboring.\n"
+        "Yoki E-kodlarni qo'lda yozing (masalan: E120 E471)."
+    )
+
+# --- 👤 PROFIL ---
+@dp.message(F.text.contains("Profil"))
 async def btn_profile(message: types.Message):
     user_id = message.from_user.id
     stats = db.get_user_stats(user_id)
     if not stats: stats = (0, 0, 0)
     total, is_prem, today = stats
     
-    # Progress Bar yasash
     limit = FREE_LIMIT
     used = min(today, limit)
     left = limit - used
@@ -90,7 +99,6 @@ async def btn_profile(message: types.Message):
         desc = "✅ Sizda hech qanday cheklov yo'q!"
     else:
         status = "👤 Oddiy Foydalanuvchi"
-        # 10 ta katakchadan iborat chiziq
         filled_len = int((used / limit) * 10)
         bar = "🟥" * filled_len + "⬜️" * (10 - filled_len) + f" ({left} qoldi)"
         desc = f"🔒 Kunlik limit: {limit} ta"
@@ -107,8 +115,8 @@ async def btn_profile(message: types.Message):
     )
     await message.answer(text, parse_mode="Markdown")
 
-# --- 📊 CHIROYLI STATISTIKA ---
-@dp.message(F.text == "📊 Statistika")
+# --- 📊 STATISTIKA ---
+@dp.message(F.text.contains("Statistika"))
 async def btn_stats(message: types.Message):
     stats = db.get_user_stats(message.from_user.id)
     count = stats[0] if stats else 0
@@ -118,6 +126,7 @@ async def btn_stats(message: types.Message):
         f"Davom eting! Biz bilan halol yeng! 🍏"
     )
 
+# --- PREMIUM ---
 @dp.message(F.text.contains("Premium"))
 async def buy_premium(message: types.Message):
     if db.is_premium(message.from_user.id):
@@ -159,6 +168,7 @@ async def handle_photo(message: types.Message):
     db.add_scan(user_id)
     
     try:
+        # Brain endi tuple qaytaradi (text, list)
         res, codes = brain.analyze_image_with_ai(path)
         await msg.delete()
         await message.answer(res)
@@ -169,17 +179,27 @@ async def handle_photo(message: types.Message):
     finally:
         if os.path.exists(path): os.remove(path)
 
+# --- 📝 MATN TEKSHIRISH (TUBO TO'SIQ QO'YILDI) ---
 @dp.message(F.text)
 async def handle_text(message: types.Message):
     text = message.text
+    
+    # 🛑 MUHIM: Agar tugma bosilgan bo'lsa, tahlil qilma!
+    if text in ["📸 Skanerlash", "👤 Profil", "💎 Premium", "📊 Statistika"]:
+        return 
+
     if len(text) < 3 or text.startswith("/"): return
+    
     user_id = message.from_user.id
     if db.check_limit(user_id, FREE_LIMIT):
         return await message.answer("⛔️ **Limit tugadi!**")
     
     msg = await message.answer("⏳ **Tahlil...**")
     db.add_scan(user_id)
+    
+    # Brain (text, list) qaytaradi
     res, codes = brain.analyze_text_with_ai(text)
+    
     await msg.delete()
     await message.answer(res)
     if codes: await notify_admin(codes, text)
