@@ -21,7 +21,7 @@ db.init_db()
 def get_main_menu():
     builder = ReplyKeyboardBuilder()
     builder.row(types.KeyboardButton(text="📸 Skanerlash"), types.KeyboardButton(text="👤 Profil"))
-    builder.row(types.KeyboardButton(text="💎 Premium"), types.KeyboardButton(text="📊 Statistika"))
+    builder.row(types.KeyboardButton(text="💎 Premium (10 000 so'm)"), types.KeyboardButton(text="📊 Statistika"))
     return builder.as_markup(resize_keyboard=True)
 
 @dp.message(Command("start"))
@@ -35,22 +35,21 @@ async def cmd_start(message: types.Message):
         reply_markup=get_main_menu()
     )
 
-# --- 🔥 ADMIN PANEL ---
+# --- 🔥 ADMIN PANEL (Siz xohlagan dizayn) ---
 @dp.message(Command("admin"))
 async def cmd_admin(message: types.Message):
     if message.from_user.id != ADMIN_ID: return
     
     users, premiums, scans = db.get_stats()
     text = (
-        f"⚙️ **ADMIN BOSHQARUV PANELI**\n"
-        f"───────────────────────\n"
-        f"👥 **Foydalanuvchilar:** {users} ta\n"
-        f"👑 **Premium obunachilar:** {premiums} ta\n"
-        f"📷 **Jami tekshiruvlar:** {scans} ta\n"
-        f"───────────────────────\n"
-        f"📢 **Xabar tarqatish:**\n`/send Xabar`"
+        f"👨‍💻 ADMIN PANEL\n"
+        f"▬▬▬▬▬▬▬▬▬▬▬\n"
+        f"👥 Foydalanuvchilar: {users}\n"
+        f"💎 Premium: {premiums}\n"
+        f"📸 Skanerlar: {scans}\n\n"
+        f"📢 Xabar tarqatish:\n`/send Xabar matni`"
     )
-    await message.answer(text, parse_mode="Markdown")
+    await message.answer(text) # Markdown shart emas, oddiy matn chiroyli chiqadi
 
 @dp.message(Command("send"))
 async def cmd_send_all(message: types.Message, command: CommandObject):
@@ -71,17 +70,7 @@ async def cmd_send_all(message: types.Message, command: CommandObject):
     
     await message.answer(f"✅ **Yuborildi:** {sent} ta")
 
-# --- 📸 SKANERLASH TUGMASI ---
-# Bu yerda .contains ishlatdik, shunda aniq ushlaydi
-@dp.message(F.text.contains("Skanerlash"))
-async def btn_scan_info(message: types.Message):
-    await message.answer(
-        "📸 **Skanerlash rejimi**\n\n"
-        "Mahsulotning **tarkibi yozilgan joyini** (Ingredientlar) tiniq qilib rasmga olib yuboring.\n"
-        "Yoki E-kodlarni qo'lda yozing (masalan: E120 E471)."
-    )
-
-# --- 👤 PROFIL ---
+# --- 👤 PROFIL (Siz xohlagan "Papka" dizayni) ---
 @dp.message(F.text.contains("Profil"))
 async def btn_profile(message: types.Message):
     user_id = message.from_user.id
@@ -89,44 +78,66 @@ async def btn_profile(message: types.Message):
     if not stats: stats = (0, 0, 0)
     total, is_prem, today = stats
     
-    limit = FREE_LIMIT
-    used = min(today, limit)
-    left = limit - used
-    
+    name = message.from_user.full_name
+
     if is_prem:
-        status = "👑 PREMIUM (Cheksiz)"
-        bar = "🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩 (∞)"
-        desc = "✅ Sizda hech qanday cheklov yo'q!"
+        status_header = "💎 PREMIUM STATUS"
+        limit_visual = "♾ Cheksiz"
+        desc = "✅ Sizda cheklovlar yo'q!"
     else:
-        status = "👤 Oddiy Foydalanuvchi"
-        filled_len = int((used / limit) * 10)
-        bar = "🟥" * filled_len + "⬜️" * (10 - filled_len) + f" ({left} qoldi)"
+        status_header = "👤 ODDIY FOYDALANUVCHI"
+        # Progress Bar: ▰▰▰▱▱
+        limit = FREE_LIMIT
+        used = min(today, limit)
+        left = limit - used
+        # 10 ta katakchadan iborat vizual
+        filled_count = int((used / limit) * 10)
+        bar = "▰" * filled_count + "▱" * (10 - filled_count)
+        
+        limit_visual = f"{bar} ({left} ta qoldi)"
         desc = f"🔒 Kunlik limit: {limit} ta"
 
     text = (
-        f"🆔 **Sizning ID:** `{user_id}`\n"
-        f"👤 **Ism:** {message.from_user.full_name}\n"
-        f"──────────────────\n"
-        f"🏷 **Status:** {status}\n"
-        f"📊 **Jami tekshiruvlar:** {total} ta\n"
-        f"📅 **Bugungi holat:**\n{bar}\n"
-        f"──────────────────\n"
-        f"💡 _{desc}_"
+        f"📂 FOYDALANUVCHI PROFILI\n"
+        f"▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n"
+        f"👤 Ism: {name}\n"
+        f"🆔 ID: {user_id}\n\n"
+        f"📊 STATISTIKA\n"
+        f"• Bugun: {today} ta\n"
+        f"• Jami: {total} ta\n\n"
+        f"💳 OBUNA HOLATI\n"
+        f"• Status: {status_header}\n"
+        f"• Limit: {limit_visual}\n\n"
+        f"💡 {desc}"
     )
-    await message.answer(text, parse_mode="Markdown")
+    await message.answer(text)
 
-# --- 📊 STATISTIKA ---
+# --- 📊 STATISTIKA (Kengaytirilgan) ---
 @dp.message(F.text.contains("Statistika"))
 async def btn_stats(message: types.Message):
     stats = db.get_user_stats(message.from_user.id)
-    count = stats[0] if stats else 0
+    if not stats: stats = (0, 0, 0)
+    total, is_prem, today = stats
+    
+    text = (
+        f"📊 **SHAXSIY STATISTIKA**\n"
+        f"▬▬▬▬▬▬▬▬▬▬▬\n"
+        f"📅 **Bugungi tahlillar:** {today} ta\n"
+        f"🗂 **Jami tahlillar:** {total} ta\n\n"
+        f"🍏 Biz bilan halol yeng!"
+    )
+    await message.answer(text, parse_mode="Markdown")
+
+# --- SKANERLASH INFO ---
+@dp.message(F.text.contains("Skanerlash"))
+async def btn_scan_info(message: types.Message):
     await message.answer(
-        f"📊 **Sizning Statistikangiz**\n\n"
-        f"✅ Siz shu kungacha jami **{count}** ta mahsulotni tekshirgansiz.\n"
-        f"Davom eting! Biz bilan halol yeng! 🍏"
+        "📸 **Skanerlash rejimi**\n\n"
+        "Mahsulotning **tarkibi yozilgan joyini** (Ingredientlar) rasmga olib yuboring.\n"
+        "Yoki kodlarni qo'lda yozing (masalan: E120)."
     )
 
-# --- PREMIUM ---
+# --- PREMIUM SOTIB OLISH ---
 @dp.message(F.text.contains("Premium"))
 async def buy_premium(message: types.Message):
     if db.is_premium(message.from_user.id):
@@ -156,6 +167,7 @@ async def notify_admin(codes, text):
     try: await bot.send_message(ADMIN_ID, f"⚠️ **Yangi kodlar:** {', '.join(codes)}\n📝 {text[:50]}...")
     except: pass
 
+# --- RASM VA MATN HANDLERLARI ---
 @dp.message(F.photo)
 async def handle_photo(message: types.Message):
     user_id = message.from_user.id
@@ -168,7 +180,6 @@ async def handle_photo(message: types.Message):
     db.add_scan(user_id)
     
     try:
-        # Brain endi tuple qaytaradi (text, list)
         res, codes = brain.analyze_image_with_ai(path)
         await msg.delete()
         await message.answer(res)
@@ -179,13 +190,12 @@ async def handle_photo(message: types.Message):
     finally:
         if os.path.exists(path): os.remove(path)
 
-# --- 📝 MATN TEKSHIRISH (TUBO TO'SIQ QO'YILDI) ---
 @dp.message(F.text)
 async def handle_text(message: types.Message):
     text = message.text
     
-    # 🛑 MUHIM: Agar tugma bosilgan bo'lsa, tahlil qilma!
-    if text in ["📸 Skanerlash", "👤 Profil", "💎 Premium", "📊 Statistika"]:
+    # 🛑 TUZATISH: Tugmalar bosilganda tahlil qilmaslik uchun to'siq
+    if text in ["📸 Skanerlash", "👤 Profil", "💎 Premium (10 000 so'm)", "📊 Statistika"]:
         return 
 
     if len(text) < 3 or text.startswith("/"): return
@@ -197,7 +207,6 @@ async def handle_text(message: types.Message):
     msg = await message.answer("⏳ **Tahlil...**")
     db.add_scan(user_id)
     
-    # Brain (text, list) qaytaradi
     res, codes = brain.analyze_text_with_ai(text)
     
     await msg.delete()
