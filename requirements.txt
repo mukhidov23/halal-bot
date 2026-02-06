@@ -2,4 +2,3 @@ aiogram
 pillow
 rapidfuzz
 pytesseract
-psycopg2-binary

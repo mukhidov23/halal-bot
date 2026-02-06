@@ -1,54 +1,37 @@
-import os
-import psycopg2
+import sqlite3
 from datetime import datetime
 
-# Railway Variables dan bazani olamiz
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-def get_connection():
-    # Agar URL yo'q bo'lsa (lokal testda), oddiy fayl yaratadi
-    if not DATABASE_URL:
-        import sqlite3
-        return sqlite3.connect("bot_database.db")
-    return psycopg2.connect(DATABASE_URL)
+DB_NAME = "bot_database.db"
 
 def init_db():
-    conn = get_connection()
+    conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    # PostgreSQL sintaksisi
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            telegram_id BIGINT PRIMARY KEY,
-            is_premium BOOLEAN DEFAULT FALSE,
+            telegram_id INTEGER PRIMARY KEY,
+            is_premium BOOLEAN DEFAULT 0,
             daily_scans INTEGER DEFAULT 0,
             last_scan_date TEXT,
             total_scans INTEGER DEFAULT 0
-        );
+        )
     """)
     conn.commit()
     conn.close()
 
 def register_user(user_id):
-    conn = get_connection()
+    conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    today = datetime.now().strftime("%Y-%m-%d")
-    
-    # PostgreSQL da "INSERT OR IGNORE" o'rniga bu ishlatiladi:
-    cursor.execute("""
-        INSERT INTO users (telegram_id, last_scan_date) 
-        VALUES (%s, %s) 
-        ON CONFLICT (telegram_id) DO NOTHING
-    """, (user_id, today))
-    
+    cursor.execute("INSERT OR IGNORE INTO users (telegram_id, last_scan_date) VALUES (?, ?)", 
+                   (user_id, datetime.now().strftime("%Y-%m-%d")))
     conn.commit()
     conn.close()
 
 def check_limit(user_id, limit):
-    conn = get_connection()
+    conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     today = datetime.now().strftime("%Y-%m-%d")
     
-    cursor.execute("SELECT is_premium, daily_scans, last_scan_date FROM users WHERE telegram_id = %s", (user_id,))
+    cursor.execute("SELECT is_premium, daily_scans, last_scan_date FROM users WHERE telegram_id = ?", (user_id,))
     row = cursor.fetchone()
     
     if not row:
@@ -63,7 +46,7 @@ def check_limit(user_id, limit):
         return False 
 
     if last_date != today:
-        cursor.execute("UPDATE users SET daily_scans = 0, last_scan_date = %s WHERE telegram_id = %s", (today, user_id))
+        cursor.execute("UPDATE users SET daily_scans = 0, last_scan_date = ? WHERE telegram_id = ?", (today, user_id))
         conn.commit()
         daily_scans = 0
 
@@ -75,18 +58,18 @@ def check_limit(user_id, limit):
     return False
 
 def add_scan(user_id):
-    conn = get_connection()
+    conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("UPDATE users SET daily_scans = daily_scans + 1, total_scans = total_scans + 1 WHERE telegram_id = %s", (user_id,))
+    cursor.execute("UPDATE users SET daily_scans = daily_scans + 1, total_scans = total_scans + 1 WHERE telegram_id = ?", (user_id,))
     conn.commit()
     conn.close()
 
 def get_stats():
-    conn = get_connection()
+    conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM users")
     users = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(*) FROM users WHERE is_premium = TRUE")
+    cursor.execute("SELECT COUNT(*) FROM users WHERE is_premium = 1")
     premiums = cursor.fetchone()[0]
     cursor.execute("SELECT SUM(total_scans) FROM users")
     result = cursor.fetchone()[0]
@@ -95,11 +78,11 @@ def get_stats():
     return users, premiums, scans
 
 def get_user_stats(user_id):
-    conn = get_connection()
+    conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     today = datetime.now().strftime("%Y-%m-%d")
     
-    cursor.execute("SELECT total_scans, is_premium, daily_scans, last_scan_date FROM users WHERE telegram_id = %s", (user_id,))
+    cursor.execute("SELECT total_scans, is_premium, daily_scans, last_scan_date FROM users WHERE telegram_id = ?", (user_id,))
     row = cursor.fetchone()
     conn.close()
     
@@ -110,22 +93,22 @@ def get_user_stats(user_id):
     return None
 
 def set_premium(user_id):
-    conn = get_connection()
+    conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("UPDATE users SET is_premium = TRUE WHERE telegram_id = %s", (user_id,))
+    cursor.execute("UPDATE users SET is_premium = 1 WHERE telegram_id = ?", (user_id,))
     conn.commit()
     conn.close()
 
 def is_premium(user_id):
-    conn = get_connection()
+    conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT is_premium FROM users WHERE telegram_id = %s", (user_id,))
+    cursor.execute("SELECT is_premium FROM users WHERE telegram_id = ?", (user_id,))
     row = cursor.fetchone()
     conn.close()
-    return row and row[0]
+    return row and row[0] == 1
 
 def get_all_users():
-    conn = get_connection()
+    conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT telegram_id FROM users")
     users = [row[0] for row in cursor.fetchall()]
