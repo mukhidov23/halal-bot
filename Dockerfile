@@ -1,5 +1,6 @@
 FROM python:3.10-slim
 
+# Tesseract (Rasm o'qish uchun)
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     libtesseract-dev \
