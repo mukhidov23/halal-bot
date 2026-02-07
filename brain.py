@@ -1,4 +1,4 @@
-
+import re
 import pytesseract
 from PIL import Image
 from rapidfuzz import process, fuzz
