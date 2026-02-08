@@ -6,6 +6,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_connection():
     if not DATABASE_URL:
+        # Fallback (ehtiyot shart)
         import sqlite3
         return sqlite3.connect("bot_database.db")
     return psycopg2.connect(DATABASE_URL)
@@ -19,16 +20,9 @@ def init_db():
             is_premium BOOLEAN DEFAULT FALSE,
             daily_scans INTEGER DEFAULT 0,
             last_scan_date TEXT,
-            total_scans INTEGER DEFAULT 0,
-            referrals INTEGER DEFAULT 0
+            total_scans INTEGER DEFAULT 0
         );
     """)
-    # Eskidan qolgan bazaga 'referrals' ustunini qo'shish (xato bermasligi uchun)
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN referrals INTEGER DEFAULT 0;")
-    except:
-        pass
-        
     conn.commit()
     conn.close()
 
@@ -36,28 +30,11 @@ def register_user(user_id):
     conn = get_connection()
     cursor = conn.cursor()
     today = datetime.now().strftime("%Y-%m-%d")
-    
-    # Avval bor yoki yo'qligini tekshiramiz
-    cursor.execute("SELECT telegram_id FROM users WHERE telegram_id = %s", (user_id,))
-    exists = cursor.fetchone()
-
-    is_new = False
-    if not exists:
-        cursor.execute("""
-            INSERT INTO users (telegram_id, last_scan_date, referrals) 
-            VALUES (%s, %s, 0)
-        """, (user_id, today))
-        is_new = True
-    
-    conn.commit()
-    conn.close()
-    return is_new
-
-def add_referral(referrer_id):
-    """Do'st chaqirgan odamga +1 ball qo'shadi"""
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE users SET referrals = referrals + 1 WHERE telegram_id = %s", (referrer_id,))
+    cursor.execute("""
+        INSERT INTO users (telegram_id, last_scan_date) 
+        VALUES (%s, %s) 
+        ON CONFLICT (telegram_id) DO NOTHING
+    """, (user_id, today))
     conn.commit()
     conn.close()
 
@@ -92,25 +69,24 @@ def check_limit(user_id, limit):
     conn.close()
     return False
 
-# --- O'ZGARTIRILGAN JOY (Date Fix) ---
 def add_scan(user_id):
     conn = get_connection()
     cursor = conn.cursor()
     today = datetime.now().strftime("%Y-%m-%d")
     
-    # Sanani tekshiramiz
+    # 1. Avval foydalanuvchining bazadagi sanasini tekshiramiz
     cursor.execute("SELECT last_scan_date FROM users WHERE telegram_id = %s", (user_id,))
     row = cursor.fetchone()
     
     if row and row[0] != today:
-        # Yangi kun -> 1 dan boshlaymiz
+        # Agar sana eski bo'lsa -> Bugungi kun uchun hisobni 1 dan boshlaymiz va sanani yangilaymiz
         cursor.execute("""
             UPDATE users 
             SET daily_scans = 1, total_scans = total_scans + 1, last_scan_date = %s 
             WHERE telegram_id = %s
         """, (today, user_id))
     else:
-        # O'sha kun -> davom etamiz
+        # Agar sana bugungi bo'lsa -> Shunchaki +1 qo'shamiz
         cursor.execute("""
             UPDATE users 
             SET daily_scans = daily_scans + 1, total_scans = total_scans + 1 
@@ -137,15 +113,13 @@ def get_user_stats(user_id):
     conn = get_connection()
     cursor = conn.cursor()
     today = datetime.now().strftime("%Y-%m-%d")
-    # Referrals ni ham olamiz
-    cursor.execute("SELECT total_scans, is_premium, daily_scans, last_scan_date, referrals FROM users WHERE telegram_id = %s", (user_id,))
+    cursor.execute("SELECT total_scans, is_premium, daily_scans, last_scan_date FROM users WHERE telegram_id = %s", (user_id,))
     row = cursor.fetchone()
     conn.close()
-    
     if row:
-        total, is_prem, daily, last_date, refs = row
+        total, is_prem, daily, last_date = row
         if last_date != today: daily = 0
-        return total, is_prem, daily, refs
+        return total, is_prem, daily
     return None
 
 def set_premium(user_id):
